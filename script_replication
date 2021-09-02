@@ -1,0 +1,760 @@
+clc
+% clear all
+% close all
+
+patcon = {'Cogthyr_pat_','Cogthyr_con_'};
+pre12 = {'_pre_both'};
+%patconLength = [20,20];
+
+ for subType = 2;
+ for subID =  %%%%cogthyr[39 41 43:65]con[38:45 47:65];
+ for sesID = 1;
+    load([patcon{subType} sprintf('%02d',subID)  pre12{sesID}  '.nirs'],'-mat');
+
+[subType subID sesID]
+
+
+ncomp = 0;
+%trange = [-2 12];
+fs = length(t)/max(t);
+tIncMan = ones(size(d(:,1))); 
+procResult.dod = hmrIntensity2OD(d);
+
+procResult.SD = enPruneChannels(d,SD,ones(size(t)),[1e-3  1e+0 ],2,[0.0 40.0],0);
+
+
+procResult.SD.MeasListAct(end/2+1:end) = procResult.SD.MeasListAct(1:end/2); %This shouldn't be necessary, not sure why it is
+
+
+procResult.dod = hmrBandpassFilt(procResult.dod,fs,0.03,0.5);
+
+
+procResult.tInc = ones(size(t));
+%Try removing 1st principal component from whole dataset
+
+procResult.dod = enPCAFilter(procResult.dod,procResult.SD,procResult.tInc,[ncomp ncomp]);
+
+STDEVthresh = 30;
+AMPthresh =  1;
+[procResult.tInc, procResult.tIncCh] = hmrMotionArtifactByChannel(procResult.dod, fs, procResult.SD, ones(length(d),1), 1, 5, STDEVthresh, AMPthresh); %procResult.tInc was before procResult.SD
+
+p = 0.99; %recommended in the littreture, -1 to not use spline
+procResult.dod = hmrMotionCorrectSpline(procResult.dod, t, procResult.SD, [procResult.tInc, procResult.tIncCh], p); %procResult.tIncCh
+
+%Convert to conc
+procResult.dc = hmrOD2Conc(procResult.dod,procResult.SD,[7.5 5]);
+
+% y_reg = hmrSSRegressionByChannel(y, SD, rhoSD_ssThresh, flagSSmethod)
+trange = [-2 12];
+glmSolveMethod = 1; %least square
+idxBasis = 1; %guassian
+paramsBasis = [0.5 0.5];    
+rhoSD_ssThresh = 15; %there was no short seperation in this array
+flagSSmethod = 1; 
+driftOrder = 3;
+flagMotionCorrect = 0;
+Aaux = []; %zeros(length(d),8);
+[yHRF_SS, ~, tHRF] = hmrDeconvHRF_DriftSS(procResult.dc, s, t, procResult.SD, Aaux, ones(length(t),1), trange, glmSolveMethod, idxBasis, paramsBasis, rhoSD_ssThresh, flagSSmethod, driftOrder, flagMotionCorrect );
+
+
+%The only channels of intrest
+Left_ROI = [22 23 24 25];
+Right_ROI = [29 30 31 32];
+
+%ipsi is ipsilateral to the correct answering hand
+%contra is contralateral to the correct answering hand
+%L is left motorcortex
+%R is right motorcortex
+
+%yHRF_SS(x,y,z,q) 
+%x=timepoins 
+%y=chromophore
+%x=channel
+%x=stimulus
+all_chan_oxy_1_ipsi_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,1,Left_ROI,1));
+all_chan_oxy_2_contra_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,1,Left_ROI,2));
+all_chan_oxy_3_ipsi_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,1,Left_ROI,3));
+all_chan_oxy_4_contra_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,1,Left_ROI,4));
+
+all_chan_oxy_1_contra_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,1,Right_ROI,1));
+all_chan_oxy_2_ipsi_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,1,Right_ROI,2));
+all_chan_oxy_3_contra_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,1,Right_ROI,3));
+all_chan_oxy_4_ipsi_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,1,Right_ROI,4));
+
+all_chan_deoxy_1_ipsi_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,2,Left_ROI,1));
+all_chan_deoxy_2_contra_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,2,Left_ROI,2));
+all_chan_deoxy_3_ipsi_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,2,Left_ROI,3));
+all_chan_deoxy_4_contra_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,2,Left_ROI,4));
+
+all_chan_deoxy_1_contra_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,2,Right_ROI,1));
+all_chan_deoxy_2_ipsi_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,2,Right_ROI,2));
+all_chan_deoxy_3_contra_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,2,Right_ROI,3));
+all_chan_deoxy_4_ipsi_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,2,Right_ROI,4));
+
+
+all_chan_tot_1_ipsi_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,3,Left_ROI,1));
+all_chan_tot_2_contra_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,3,Left_ROI,2));
+all_chan_tot_3_ipsi_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,3,Left_ROI,3));
+all_chan_tot_4_contra_L{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,3,Left_ROI,4));
+
+all_chan_tot_1_contra_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,3,Right_ROI,1));
+all_chan_tot_2_ipsi_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,3,Right_ROI,2));
+all_chan_tot_3_contra_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,3,Right_ROI,3));
+all_chan_tot_4_ipsi_R{subType}{sesID,subID} = squeeze(yHRF_SS(1:141,3,Right_ROI,4));
+
+
+
+
+end
+end
+end
+%%
+% clear all [] columnes in all_chan_oxy_1 to 4
+con_contra_R = all_chan_oxy_1_contra_R{1, 2};
+con_ipsi_L = all_chan_oxy_1_ipsi_L{1, 2};
+con_contra_L = all_chan_oxy_2_contra_L{1, 2};
+con_ipsi_R = all_chan_oxy_2_ipsi_R{1, 2};
+in_contra_R = all_chan_oxy_3_contra_R{1, 2};
+in_ipsi_L = all_chan_oxy_3_ipsi_L{1, 2};
+in_contra_L = all_chan_oxy_4_contra_L{1, 2};
+in_ipsi_R = all_chan_oxy_4_ipsi_R{1, 2};
+
+con_contra_R(:,[1:37])=[];
+con_contra_R(:,[9])=[];
+con_ipsi_L(:,[1:37])=[];
+con_ipsi_L(:,[9])=[];
+con_contra_L(:,[1:37])=[];
+con_contra_L(:,[9])=[];
+con_ipsi_R(:,[1:37])=[];
+con_ipsi_R(:,[9])=[];
+
+in_contra_R(:,[1:37])=[];
+in_contra_R(:,[9])=[];
+in_ipsi_L(:,[1:37])=[];
+in_ipsi_L(:,[9])=[];
+in_contra_L(:,[1:37])=[];
+in_contra_L(:,[9])=[];
+in_ipsi_R(:,[1:37])=[];
+in_ipsi_R(:,[9])=[];
+
+con_contra_Rp = all_chan_oxy_1_contra_R{1, 1};
+con_ipsi_Lp = all_chan_oxy_1_ipsi_L{1, 1};
+con_contra_Lp = all_chan_oxy_2_contra_L{1, 1};
+con_ipsi_Rp = all_chan_oxy_2_ipsi_R{1, 1};
+in_contra_Rp = all_chan_oxy_3_contra_R{1, 1};
+in_ipsi_Lp = all_chan_oxy_3_ipsi_L{1, 1};
+in_contra_Lp = all_chan_oxy_4_contra_L{1, 1};
+in_ipsi_Rp = all_chan_oxy_4_ipsi_R{1, 1};
+
+con_contra_Rp(:,[1:38])=[];
+con_contra_Rp(:,[2])=[];
+con_contra_Rp(:,[3])=[];
+con_ipsi_Lp(:,[1:38])=[];
+con_ipsi_Lp(:,[2])=[];
+con_ipsi_Lp(:,[3])=[];
+con_contra_Lp(:,[1:38])=[];
+con_contra_Lp(:,[2])=[];
+con_contra_Lp(:,[3])=[];
+con_ipsi_Rp(:,[1:38])=[];
+con_ipsi_Rp(:,[2])=[];
+con_ipsi_Rp(:,[3])=[];
+
+in_contra_Rp(:,[1:38])=[];
+in_contra_Rp(:,[2])=[];
+in_contra_Rp(:,[3])=[];
+in_ipsi_Lp(:,[1:38])=[];
+in_ipsi_Lp(:,[2])=[];
+in_ipsi_Lp(:,[3])=[];
+in_contra_Lp(:,[1:38])=[];
+in_contra_Lp(:,[2])=[];
+in_contra_Lp(:,[3])=[];
+in_ipsi_Rp(:,[1:38])=[];
+in_ipsi_Rp(:,[2])=[];
+in_ipsi_Rp(:,[3])=[];
+
+%replace 0 with NaN
+
+for n = 1:length(con_contra_R);
+    for m = 1:4;
+        
+    if con_contra_R{1,n}(:,m) == 0;
+        con_contra_R{1,n}(:,m) = NaN;
+    else
+        con_contra_R{1,n}(:,m);
+    end
+    
+      if con_ipsi_L{1,n}(:,m) == 0;
+        con_ipsi_L{1,n}(:,m) = NaN;
+    else
+        con_ipsi_L{1,n}(:,m);
+      end
+    
+       if con_contra_L{1,n}(:,m) == 0;
+        con_contra_L{1,n}(:,m) = NaN;
+    else
+        con_contra_L{1,n}(:,m);
+    end
+    
+      if con_ipsi_R{1,n}(:,m) == 0;
+        con_ipsi_R{1,n}(:,m) = NaN;
+    else
+        con_ipsi_R{1,n}(:,m);
+      end
+      
+         if in_contra_R{1,n}(:,m) == 0;
+        in_contra_R{1,n}(:,m) = NaN;
+    else
+        in_contra_R{1,n}(:,m);
+    end
+    
+      if in_ipsi_L{1,n}(:,m) == 0;
+        in_ipsi_L{1,n}(:,m) = NaN;
+    else
+        in_ipsi_L{1,n}(:,m);
+      end
+      
+         if in_contra_L{1,n}(:,m) == 0;
+        in_contra_L{1,n}(:,m) = NaN;
+    else
+        in_contra_L{1,n}(:,m);
+    end
+    
+      if in_ipsi_R{1,n}(:,m) == 0;
+        in_ipsi_R{1,n}(:,m) = NaN;
+    else
+        in_ipsi_R{1,n}(:,m);
+      end     
+      
+    end
+end
+
+
+for n = 1:length(con_contra_Rp);
+    for m = 1:4;
+        
+    if con_contra_Rp{1,n}(:,m) == 0;
+        con_contra_Rp{1,n}(:,m) = NaN;
+    else
+        con_contra_Rp{1,n}(:,m);
+    end
+    
+      if con_ipsi_Lp{1,n}(:,m) == 0;
+        con_ipsi_Lp{1,n}(:,m) = NaN;
+    else
+        con_ipsi_Lp{1,n}(:,m);
+      end
+    
+       if con_contra_Lp{1,n}(:,m) == 0;
+        con_contra_Lp{1,n}(:,m) = NaN;
+    else
+        con_contra_Lp{1,n}(:,m);
+    end
+    
+      if con_ipsi_Rp{1,n}(:,m) == 0;
+        con_ipsi_Rp{1,n}(:,m) = NaN;
+    else
+        con_ipsi_Rp{1,n}(:,m);
+      end
+      
+         if in_contra_Rp{1,n}(:,m) == 0;
+        in_contra_Rp{1,n}(:,m) = NaN;
+    else
+        in_contra_Rp{1,n}(:,m);
+    end
+    
+      if in_ipsi_Lp{1,n}(:,m) == 0;
+        in_ipsi_Lp{1,n}(:,m) = NaN;
+    else
+        in_ipsi_Lp{1,n}(:,m);
+      end
+      
+         if in_contra_Lp{1,n}(:,m) == 0;
+        in_contra_Lp{1,n}(:,m) = NaN;
+    else
+        in_contra_Lp{1,n}(:,m);
+    end
+    
+      if in_ipsi_Rp{1,n}(:,m) == 0;
+        in_ipsi_Rp{1,n}(:,m) = NaN;
+    else
+        in_ipsi_Rp{1,n}(:,m);
+      end     
+      
+    end
+end
+
+%%
+%the same for tot-Hb
+con_contra_Rt = all_chan_tot_1_contra_R{1, 2};
+con_ipsi_Lt = all_chan_tot_1_ipsi_L{1, 2};
+con_contra_Lt = all_chan_tot_2_contra_L{1, 2};
+con_ipsi_Rt = all_chan_tot_2_ipsi_R{1, 2};
+in_contra_Rt = all_chan_tot_3_contra_R{1, 2};
+in_ipsi_Lt = all_chan_tot_3_ipsi_L{1, 2};
+in_contra_Lt = all_chan_tot_4_contra_L{1, 2};
+in_ipsi_Rt = all_chan_tot_4_ipsi_R{1, 2};
+
+con_contra_Rt(:,[1:37])=[];
+con_contra_Rt(:,[9])=[];
+con_ipsi_Lt(:,[1:37])=[];
+con_ipsi_Lt(:,[9])=[];
+con_contra_Lt(:,[1:37])=[];
+con_contra_Lt(:,[9])=[];
+con_ipsi_Rt(:,[1:37])=[];
+con_ipsi_Rt(:,[9])=[];
+
+in_contra_Rt(:,[1:37])=[];
+in_contra_Rt(:,[9])=[];
+in_ipsi_Lt(:,[1:37])=[];
+in_ipsi_Lt(:,[9])=[];
+in_contra_Lt(:,[1:37])=[];
+in_contra_Lt(:,[9])=[];
+in_ipsi_Rt(:,[1:37])=[];
+in_ipsi_Rt(:,[9])=[];
+
+
+con_contra_Rtp = all_chan_tot_1_contra_R{1, 1};
+con_ipsi_Ltp = all_chan_tot_1_ipsi_L{1, 1};
+con_contra_Ltp = all_chan_tot_2_contra_L{1, 1};
+con_ipsi_Rtp = all_chan_tot_2_ipsi_R{1, 1};
+in_contra_Rtp = all_chan_tot_3_contra_R{1, 1};
+in_ipsi_Ltp = all_chan_tot_3_ipsi_L{1, 1};
+in_contra_Ltp = all_chan_tot_4_contra_L{1, 1};
+in_ipsi_Rtp = all_chan_tot_4_ipsi_R{1, 1};
+
+con_contra_Rtp(:,[1:38])=[];
+con_contra_Rtp(:,[2])=[];
+con_contra_Rtp(:,[3])=[];
+con_ipsi_Ltp(:,[1:38])=[];
+con_ipsi_Ltp(:,[2])=[];
+con_ipsi_Ltp(:,[3])=[];
+con_contra_Ltp(:,[1:38])=[];
+con_contra_Ltp(:,[2])=[];
+con_contra_Ltp(:,[3])=[];
+con_ipsi_Rtp(:,[1:38])=[];
+con_ipsi_Rtp(:,[2])=[];
+con_ipsi_Rtp(:,[3])=[];
+
+in_contra_Rtp(:,[1:38])=[];
+in_contra_Rtp(:,[2])=[];
+in_contra_Rtp(:,[3])=[];
+in_ipsi_Ltp(:,[1:38])=[];
+in_ipsi_Ltp(:,[2])=[];
+in_ipsi_Ltp(:,[3])=[];
+in_contra_Ltp(:,[1:38])=[];
+in_contra_Ltp(:,[2])=[];
+in_contra_Ltp(:,[3])=[];
+in_ipsi_Rtp(:,[1:38])=[];
+in_ipsi_Rtp(:,[2])=[];
+in_ipsi_Rtp(:,[3])=[];
+
+
+for n = 1:length(con_contra_Rt);
+    for m = 1:4;
+        
+    if con_contra_Rt{1,n}(:,m) == 0;
+        con_contra_Rt{1,n}(:,m) = NaN;
+    else
+        con_contra_Rt{1,n}(:,m);
+    end
+    
+      if con_ipsi_Lt{1,n}(:,m) == 0;
+        con_ipsi_Lt{1,n}(:,m) = NaN;
+    else
+        con_ipsi_Lt{1,n}(:,m);
+      end
+    
+       if con_contra_Lt{1,n}(:,m) == 0;
+        con_contra_Lt{1,n}(:,m) = NaN;
+    else
+        con_contra_Lt{1,n}(:,m);
+    end
+    
+      if con_ipsi_Rt{1,n}(:,m) == 0;
+        con_ipsi_Rt{1,n}(:,m) = NaN;
+    else
+        con_ipsi_Rt{1,n}(:,m);
+      end
+      
+         if in_contra_Rt{1,n}(:,m) == 0;
+        in_contra_Rt{1,n}(:,m) = NaN;
+    else
+        in_contra_Rt{1,n}(:,m);
+    end
+    
+      if in_ipsi_Lt{1,n}(:,m) == 0;
+        in_ipsi_Lt{1,n}(:,m) = NaN;
+    else
+        in_ipsi_Lt{1,n}(:,m);
+      end
+      
+         if in_contra_Lt{1,n}(:,m) == 0;
+        in_contra_Lt{1,n}(:,m) = NaN;
+    else
+        in_contra_Lt{1,n}(:,m);
+    end
+    
+      if in_ipsi_Rt{1,n}(:,m) == 0;
+        in_ipsi_Rt{1,n}(:,m) = NaN;
+    else
+        in_ipsi_Rt{1,n}(:,m);
+      end     
+      
+    end
+end
+
+
+for n = 1:length(con_contra_Rtp);
+    for m = 1:4;
+        
+    if con_contra_Rtp{1,n}(:,m) == 0;
+        con_contra_Rtp{1,n}(:,m) = NaN;
+    else
+        con_contra_Rtp{1,n}(:,m);
+    end
+    
+      if con_ipsi_Ltp{1,n}(:,m) == 0;
+        con_ipsi_Ltp{1,n}(:,m) = NaN;
+    else
+        con_ipsi_Ltp{1,n}(:,m);
+      end
+    
+       if con_contra_Ltp{1,n}(:,m) == 0;
+        con_contra_Ltp{1,n}(:,m) = NaN;
+    else
+        con_contra_Ltp{1,n}(:,m);
+    end
+    
+      if con_ipsi_Rtp{1,n}(:,m) == 0;
+        con_ipsi_Rtp{1,n}(:,m) = NaN;
+    else
+        con_ipsi_Rtp{1,n}(:,m);
+      end
+      
+         if in_contra_Rtp{1,n}(:,m) == 0;
+        in_contra_Rtp{1,n}(:,m) = NaN;
+    else
+        in_contra_Rtp{1,n}(:,m);
+    end
+    
+      if in_ipsi_Ltp{1,n}(:,m) == 0;
+        in_ipsi_Ltp{1,n}(:,m) = NaN;
+    else
+        in_ipsi_Ltp{1,n}(:,m);
+      end
+      
+         if in_contra_Ltp{1,n}(:,m) == 0;
+        in_contra_Ltp{1,n}(:,m) = NaN;
+    else
+        in_contra_Ltp{1,n}(:,m);
+    end
+    
+      if in_ipsi_Rtp{1,n}(:,m) == 0;
+        in_ipsi_Rtp{1,n}(:,m) = NaN;
+    else
+        in_ipsi_Rtp{1,n}(:,m);
+      end     
+      
+    end
+end
+
+%%
+%the same for deoxy-Hb
+con_contra_Rd = all_chan_deoxy_1_contra_R{1, 2};
+con_ipsi_Ld = all_chan_deoxy_1_ipsi_L{1, 2};
+con_contra_Ld = all_chan_deoxy_2_contra_L{1, 2};
+con_ipsi_Rd = all_chan_deoxy_2_ipsi_R{1, 2};
+in_contra_Rd = all_chan_deoxy_3_contra_R{1, 2};
+in_ipsi_Ld = all_chan_deoxy_3_ipsi_L{1, 2};
+in_contra_Ld = all_chan_deoxy_4_contra_L{1, 2};
+in_ipsi_Rd = all_chan_deoxy_4_ipsi_R{1, 2};
+
+con_contra_Rd(:,[1:37])=[];
+con_contra_Rd(:,[9])=[];
+con_ipsi_Ld(:,[1:37])=[];
+con_ipsi_Ld(:,[9])=[];
+con_contra_Ld(:,[1:37])=[];
+con_contra_Ld(:,[9])=[];
+con_ipsi_Rd(:,[1:37])=[];
+con_ipsi_Rd(:,[9])=[];
+
+in_contra_Rd(:,[1:37])=[];
+in_contra_Rd(:,[9])=[];
+in_ipsi_Ld(:,[1:37])=[];
+in_ipsi_Ld(:,[9])=[];
+in_contra_Ld(:,[1:37])=[];
+in_contra_Ld(:,[9])=[];
+in_ipsi_Rd(:,[1:37])=[];
+in_ipsi_Rd(:,[9])=[];
+
+con_contra_Rdp = all_chan_deoxy_1_contra_R{1, 1};
+con_ipsi_Ldp = all_chan_deoxy_1_ipsi_L{1, 1};
+con_contra_Ldp = all_chan_deoxy_2_contra_L{1, 1};
+con_ipsi_Rdp = all_chan_deoxy_2_ipsi_R{1, 1};
+in_contra_Rdp = all_chan_deoxy_3_contra_R{1, 1};
+in_ipsi_Ldp = all_chan_deoxy_3_ipsi_L{1, 1};
+in_contra_Ldp = all_chan_deoxy_4_contra_L{1, 1};
+in_ipsi_Rdp = all_chan_deoxy_4_ipsi_R{1, 1};
+
+con_contra_Rdp(:,[1:38])=[];
+con_contra_Rdp(:,[2])=[];
+con_contra_Rdp(:,[3])=[];
+con_ipsi_Ldp(:,[1:38])=[];
+con_ipsi_Ldp(:,[2])=[];
+con_ipsi_Ldp(:,[3])=[];
+con_contra_Ldp(:,[1:38])=[];
+con_contra_Ldp(:,[2])=[];
+con_contra_Ldp(:,[3])=[];
+con_ipsi_Rdp(:,[1:38])=[];
+con_ipsi_Rdp(:,[2])=[];
+con_ipsi_Rdp(:,[3])=[];
+
+in_contra_Rdp(:,[1:38])=[];
+in_contra_Rdp(:,[2])=[];
+in_contra_Rdp(:,[3])=[];
+in_ipsi_Ldp(:,[1:38])=[];
+in_ipsi_Ldp(:,[2])=[];
+in_ipsi_Ldp(:,[3])=[];
+in_contra_Ldp(:,[1:38])=[];
+in_contra_Ldp(:,[2])=[];
+in_contra_Ldp(:,[3])=[];
+in_ipsi_Rdp(:,[1:38])=[];
+in_ipsi_Rdp(:,[2])=[];
+in_ipsi_Rdp(:,[3])=[];
+
+for n = 1:length(con_contra_Rd);
+    for m = 1:4;
+        
+    if con_contra_Rd{1,n}(:,m) == 0;
+        con_contra_Rd{1,n}(:,m) = NaN;
+    else
+        con_contra_Rd{1,n}(:,m);
+    end
+    
+      if con_ipsi_Ld{1,n}(:,m) == 0;
+        con_ipsi_Ld{1,n}(:,m) = NaN;
+    else
+        con_ipsi_Ld{1,n}(:,m);
+      end
+    
+       if con_contra_Ld{1,n}(:,m) == 0;
+        con_contra_Ld{1,n}(:,m) = NaN;
+    else
+        con_contra_Ld{1,n}(:,m);
+    end
+    
+      if con_ipsi_Rd{1,n}(:,m) == 0;
+        con_ipsi_Rd{1,n}(:,m) = NaN;
+    else
+        con_ipsi_Rd{1,n}(:,m);
+      end
+      
+         if in_contra_Rd{1,n}(:,m) == 0;
+        in_contra_Rd{1,n}(:,m) = NaN;
+    else
+        in_contra_Rd{1,n}(:,m);
+    end
+    
+      if in_ipsi_Ld{1,n}(:,m) == 0;
+        in_ipsi_Ld{1,n}(:,m) = NaN;
+    else
+        in_ipsi_Ld{1,n}(:,m);
+      end
+      
+         if in_contra_Ld{1,n}(:,m) == 0;
+        in_contra_Ld{1,n}(:,m) = NaN;
+    else
+        in_contra_Ld{1,n}(:,m);
+    end
+    
+      if in_ipsi_Rd{1,n}(:,m) == 0;
+        in_ipsi_Rd{1,n}(:,m) = NaN;
+    else
+        in_ipsi_Rd{1,n}(:,m);
+      end     
+      
+    end
+end
+
+
+for n = 1:length(con_contra_Rdp);
+    for m = 1:4;
+        
+    if con_contra_Rdp{1,n}(:,m) == 0;
+        con_contra_Rdp{1,n}(:,m) = NaN;
+    else
+        con_contra_Rdp{1,n}(:,m);
+    end
+    
+      if con_ipsi_Ldp{1,n}(:,m) == 0;
+        con_ipsi_Ldp{1,n}(:,m) = NaN;
+    else
+        con_ipsi_Ldp{1,n}(:,m);
+      end
+    
+       if con_contra_Ldp{1,n}(:,m) == 0;
+        con_contra_Ldp{1,n}(:,m) = NaN;
+    else
+        con_contra_Ldp{1,n}(:,m);
+    end
+    
+      if con_ipsi_Rdp{1,n}(:,m) == 0;
+        con_ipsi_Rdp{1,n}(:,m) = NaN;
+    else
+        con_ipsi_Rdp{1,n}(:,m);
+      end
+      
+         if in_contra_Rdp{1,n}(:,m) == 0;
+        in_contra_Rdp{1,n}(:,m) = NaN;
+    else
+        in_contra_Rdp{1,n}(:,m);
+    end
+    
+      if in_ipsi_Ldp{1,n}(:,m) == 0;
+        in_ipsi_Ldp{1,n}(:,m) = NaN;
+    else
+        in_ipsi_Ldp{1,n}(:,m);
+      end
+      
+         if in_contra_Ldp{1,n}(:,m) == 0;
+        in_contra_Ldp{1,n}(:,m) = NaN;
+    else
+        in_contra_Ldp{1,n}(:,m);
+    end
+    
+      if in_ipsi_Rdp{1,n}(:,m) == 0;
+        in_ipsi_Rdp{1,n}(:,m) = NaN;
+    else
+        in_ipsi_Rdp{1,n}(:,m);
+      end     
+      
+    end
+end
+%%
+%oxy hemoglobin
+% The first session control
+for m = 1:length(con_contra_R);
+    
+Cong_Con{m} = nanmean([con_contra_L{1,m} con_contra_R{1,m} ]')'   ;
+Cong_Ips{m} = nanmean([con_ipsi_L{1,m} con_ipsi_R{1,m} ]')'   ;
+Incong_Con{m} = nanmean([in_contra_L{1,m} in_contra_R{1,m} ]')'   ;
+Incong_Ips{m} = nanmean([in_ipsi_L{1,m} in_ipsi_R{1,m} ]')'   ;
+
+end
+
+CongCon = cell2mat(Cong_Con) * 1000000;
+CongIps = cell2mat(Cong_Ips) * 1000000;
+InCon = cell2mat(Incong_Con) * 1000000;
+InIps = cell2mat(Incong_Ips) * 1000000;
+
+for m = 1:length(con_contra_Rp);
+    
+Cong_Conp{m} = nanmean([con_contra_Lp{1,m} con_contra_Rp{1,m} ]')'   ;
+Cong_Ipsp{m} = nanmean([con_ipsi_Lp{1,m} con_ipsi_Rp{1,m} ]')'   ;
+Incong_Conp{m} = nanmean([in_contra_Lp{1,m} in_contra_Rp{1,m} ]')'   ;
+Incong_Ipsp{m} = nanmean([in_ipsi_Lp{1,m} in_ipsi_Rp{1,m} ]')'   ;
+
+end
+
+CongConp = cell2mat(Cong_Conp) * 1000000;
+CongIpsp = cell2mat(Cong_Ipsp) * 1000000;
+InConp = cell2mat(Incong_Conp) * 1000000;
+InIpsp = cell2mat(Incong_Ipsp) * 1000000;
+
+
+CongCon_both = [CongCon CongConp];
+CongIps_both = [CongIps CongIpsp];
+InCon_both = [InCon InConp];
+InIps_both = [InIps InIpsp];
+
+% total hemogolbin
+
+% The first session control
+for m = 1:length(con_contra_Rt);
+    
+Cong_Cont{m} = nanmean([con_contra_Lt{1,m} con_contra_Rt{1,m} ]')'   ;
+Cong_Ipst{m} = nanmean([con_ipsi_Lt{1,m} con_ipsi_Rt{1,m} ]')'   ;
+Incong_Cont{m} = nanmean([in_contra_Lt{1,m} in_contra_Rt{1,m} ]')'   ;
+Incong_Ipst{m} = nanmean([in_ipsi_Lt{1,m} in_ipsi_Rt{1,m} ]')'   ;
+
+end
+
+CongConT = cell2mat(Cong_Cont) * 1000000;
+CongIpsT = cell2mat(Cong_Ipst) * 1000000;
+InConT = cell2mat(Incong_Cont) * 1000000;
+InIpsT = cell2mat(Incong_Ipst) * 1000000;
+
+for m = 1:length(con_contra_Rtp);
+    
+Cong_Contp{m} = nanmean([con_contra_Ltp{1,m} con_contra_Rtp{1,m} ]')'   ;
+Cong_Ipstp{m} = nanmean([con_ipsi_Ltp{1,m} con_ipsi_Rtp{1,m} ]')'   ;
+Incong_Contp{m} = nanmean([in_contra_Ltp{1,m} in_contra_Rtp{1,m} ]')'   ;
+Incong_Ipstp{m} = nanmean([in_ipsi_Ltp{1,m} in_ipsi_Rtp{1,m} ]')'   ;
+
+end
+
+CongConTp = cell2mat(Cong_Contp) * 1000000;
+CongIpsTp = cell2mat(Cong_Ipstp) * 1000000;
+InConTp = cell2mat(Incong_Contp) * 1000000;
+InIpsTp = cell2mat(Incong_Ipstp) * 1000000;
+
+
+CongCon_both_T = [CongConT CongConTp];
+CongIps_both_T = [CongIpsT CongIpsTp];
+InCon_both_T = [InConT InConTp];
+InIps_both_T = [InIpsT InIpsTp];
+
+
+% deoxy 
+
+
+% The first session control
+for m = 1:length(con_contra_Rd);
+    
+Cong_Cond{m} = nanmean([con_contra_Ld{1,m} con_contra_Rd{1,m} ]')'   ;
+Cong_Ipstd{m} = nanmean([con_ipsi_Ld{1,m} con_ipsi_Rd{1,m} ]')'   ;
+Incong_Cond{m} = nanmean([in_contra_Ld{1,m} in_contra_Rd{1,m} ]')'   ;
+Incong_Ipsd{m} = nanmean([in_ipsi_Ld{1,m} in_ipsi_Rd{1,m} ]')'   ;
+
+end
+
+CongConD = cell2mat(Cong_Cond) * 1000000;
+CongIpsD = cell2mat(Cong_Ipstd) * 1000000;
+InConD = cell2mat(Incong_Cond) * 1000000;
+InIpsD = cell2mat(Incong_Ipsd) * 1000000;
+
+for m = 1:length(con_contra_Rdp);
+    
+Cong_Condp{m} = nanmean([con_contra_Ldp{1,m} con_contra_Rdp{1,m} ]')'   ;
+Cong_Ipstdp{m} = nanmean([con_ipsi_Ldp{1,m} con_ipsi_Rdp{1,m} ]')'   ;
+Incong_Condp{m} = nanmean([in_contra_Ldp{1,m} in_contra_Rdp{1,m} ]')'   ;
+Incong_Ipsdp{m} = nanmean([in_ipsi_Ldp{1,m} in_ipsi_Rdp{1,m} ]')'   ;
+
+end
+
+CongConDp = cell2mat(Cong_Condp) * 1000000;
+CongIpsDp = cell2mat(Cong_Ipstdp) * 1000000;
+InConDp = cell2mat(Incong_Condp) * 1000000;
+InIpsDp = cell2mat(Incong_Ipsdp) * 1000000;
+
+CongCon_both_D = [CongConD CongConDp];
+CongIps_both_D = [CongIpsD CongIpsDp];
+InCon_both_D = [InConD InConDp];
+InIps_both_D = [InIpsD InIpsDp];
+
+
+%%
+%point-by-point repeated ANOVA.
+clc
+clear p_values
+for m = 1:140;
+    
+p_values{m} = rep_animal_stroop_stat(CongCon(m,:), CongIps(m,:), InCon(m,:), InIps(m,:));
+
+end
+
+p_values = cell2mat(p_values');
+
+find(p_values(:,1)<0.05) % Congruency 
+find(p_values(:,2)<0.05) % Hemispher
+find(p_values(:,3)<0.05) % interaction
