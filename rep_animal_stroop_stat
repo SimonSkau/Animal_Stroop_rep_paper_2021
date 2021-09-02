@@ -1,0 +1,24 @@
+function p_values = rep_animal_stroop_stat(Congruent_Contralateral, Congruent_Ipsilateral, Incongruent_Contralateral, Incongruent_Ipsilateral )
+
+%test
+%Cong_Con(50,:)'
+% Congruent_Contralateral = Cong_Con(50,:);
+% Congruent_Ipsilateral = Cong_Ips(50,:);
+% Incongruent_Contralateral = Incong_Con(50,:);
+% Incongruent_Ipsilateral = Incong_Ips(50,:);
+
+datatable = table(Congruent_Contralateral', Congruent_Ipsilateral', Incongruent_Contralateral', Incongruent_Ipsilateral',...
+    'VariableNames', {'Congruent_Contralateral','Congruent_Ipsilateral','Incongruent_Contralateral','Incongruent_Ipsilateral'}  );
+WithinStructure = table([1 1 2 2]',[1 2 1 2]','VariableNames',{'Congruency','Hemispher'});
+WithinStructure.Congruency = categorical(WithinStructure.Congruency);
+WithinStructure.Hemispher = categorical(WithinStructure.Hemispher);
+rm = fitrm(datatable, 'Congruent_Contralateral,Congruent_Ipsilateral,Incongruent_Contralateral,Incongruent_Ipsilateral~1','WithinDesign',WithinStructure);
+ranovatable = ranova(rm,'WithinModel','Congruency*Hemispher');
+
+A = table2array(ranovatable);
+p_values = [A(3,6) A(5,6) A(7,6)];
+
+
+
+end
+        
